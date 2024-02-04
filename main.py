@@ -104,7 +104,7 @@ vectordb = data_load(diagnostic_mode=diagnostic_mode)
 st.title("SOP with citations")
 intro = st.subheader("Welcome to your SOP guide")
 
-text_input = st.text_input(label="What would you like help with?",value="....")
+text_input = st.text_input(label="What would you like help with?",value="What happens during turn season? ")
 
 
 if text_input:
