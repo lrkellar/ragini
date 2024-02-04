@@ -1,0 +1,9 @@
+# PYthon 3.11
+langchain
+langchain_community
+openai
+icecream
+streamlit
+pysqlite3-binary
+langchain_openai
+chromadb
