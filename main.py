@@ -128,7 +128,7 @@ st.title("SOP with citations")
 intro = st.subheader("Welcome to your SOP guide")
 
 passphrase = st.text_input(label="Please enter your passcode", value="Speak friend and enter")
-code = "Guest"
+code = st.secrets['passcode']
 if passphrase == code:
 
     text_input = st.text_input(label="What would you like help with?",value="What happens during turn season? ")
