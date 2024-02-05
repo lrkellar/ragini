@@ -123,18 +123,21 @@ def unpack_answer(incoming):
 
 
 vectordb = data_load(diagnostic_mode=diagnostic_mode)
+
 st.title("SOP with citations")
 intro = st.subheader("Welcome to your SOP guide")
 
 passphrase = st.text_input(label="Please enter your passcode", value="Speak friend and enter")
 code = "Guest"
 if passphrase == code:
+
     text_input = st.text_input(label="What would you like help with?",value="What happens during turn season? ")
 
     if text_input:
         query = text_input
         context = vectordb.similarity_search(query)
-        results = citation_chain(question=query, context=context)
+        with st.spinner(text="Checking the archives"):
+            results = citation_chain(question=query, context=context)
         citations = unpack_citations(results)
 
         st.subheader("Answer", anchor="Answer")
