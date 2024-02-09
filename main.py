@@ -33,7 +33,7 @@ from icecream import ic
 from langchain_openai import ChatOpenAI
 from langchain.chains import create_citation_fuzzy_match_chain
 import streamlit as st
-
+st.set_page_config(layout="wide")
 
 def highlight(text, span):
     return (
@@ -106,52 +106,96 @@ def ref_search(inp_str: str, search_str: str, context_len: int = 20) -> str:
     
     return output
 
+def source_checker(context):
+    print(context)
+
 def unpack_citations(incoming):
     staging = ""
     for x in range(len(incoming['text'].answer)):
-        stage2 = incoming['text'].answer[x].substring_quote
-        staging = f'{staging}  \n\n <a id="quote{x+1}">{x+1}</a> : {stage2}'
+        stage2 = str(incoming['text'].answer[x].substring_quote)
+        stage2 = re.sub("\n\n", "  \n\n", stage2)
+        staging = f'{staging}  \n\n <b id="quote{x+1}">{x+1}</b>: {stage2}'
     return staging
 
 def unpack_answer(incoming):
     staging = ""
     for x in range(len(incoming['text'].answer)):
         stage2 = incoming['text'].answer[x].fact
-        staging = f'{staging} \n\n {x+1}. {stage2}[<sup>{x+1}</sup>](#quote{x+1})'
+        staging = f'{staging}  \n\n {x+1}. {stage2}[<sup>{x+1}</sup>](#quote{x+1})'
     return staging
 
+def cited_rag(query):
+    context = vectordb.similarity_search(query)
+    with st.spinner(text="Checking the archives"):
+        results = citation_chain(question=query, context=context)
+    citations = unpack_citations(results)
+    num_sources = len(results['context'])
+    st.subheader("Answer", anchor="Answer")
+    st.markdown(unpack_answer(results), unsafe_allow_html=True)
+    col1, col2 = st.columns([.7,.3])
+    col1.subheader("Quotations", anchor='Quotations')
+    col1.markdown(citations, unsafe_allow_html=True)
+
+    if 'context' in results and num_sources > 0:
+        sources = ""
+        count = 1
+        for x in range(0,num_sources):
+            ic(results)
+            source_raw = results['context'][0].metadata['source']
+            ic(source_raw)
+            source_staging = cleaner(source_raw)[1]
+            
+            if sources.find(source_staging) == -1:
+                #ic(sources.find("source_staging"))
+                sources = f'{sources} {count}.{source_staging} \n\n'
+                count += count
+        col2.subheader("Sources", anchor='Sources')
+        col2.write(sources)
 
 
 vectordb = data_load(diagnostic_mode=diagnostic_mode)
+prompta = "I am the operations manager for Bloomington. It is february, what should I be working on?"
+promptb = "What documents do I need for an international applicant?"
+promptc = "Who is responsible for move out inspections?"
+promptd = "I am the on call technician, is the clogged toilet that just got called in an emergency?"
+prompte = "What are the steps to gathering a bid?"
+promptf = "How should I explain the reconditioning fee?"
+
 
 st.title("SOP with citations")
 intro = st.subheader("Welcome to your SOP guide")
-
+query = ""
 passphrase = st.text_input(label="Please enter your passcode", value="Speak friend and enter")
 code = st.secrets['passcode']
 if passphrase == code:
+    st.markdown("Not sure where to start? Here are some of my favorite prompts, it takes about 6-8 seconds to answer right now")
+    cola, colb, colc, cold, cole, colf = st.columns(6)
+    with cola:
+        if st.button(prompta, key="prompta"):
+            query = prompta
+    with colb:
+        if st.button(promptb, key="promptb"): 
+            query = promptb
+    with colc:
+        if st.button(promptc, key="promptc"): 
+            query = promptc  
+    with cold:
+        if st.button(promptd, key="promptd"): 
+            query = promptd
+    with cole:
+        if st.button(prompte, key="prompte"): 
+            query = prompte
+    with colf:
+        if st.button(promptf, key="promptf"): 
+            query = promptf
+    
 
-    text_input = st.text_input(label="What would you like help with?",value="What happens during turn season? ")
+    user_question = st.text_input(label="What would you like help with?",placeholder="What happens during turn season? ", key="user_question")
+    if user_question:
+        query = user_question
 
-    if text_input:
-        query = text_input
-        context = vectordb.similarity_search(query)
-        with st.spinner(text="Checking the archives"):
-            results = citation_chain(question=query, context=context)
-        citations = unpack_citations(results)
-
-        st.subheader("Answer", anchor="Answer")
-        st.markdown(unpack_answer(results), unsafe_allow_html=True)
-        col1, col2 = st.columns([.7,.3])
-        col1.subheader("Quotations", anchor='Quotations')
-        col1.markdown(citations, unsafe_allow_html=True)
-
-        if 'context' in results and len(results['context']) > 1:
-            source1_raw = results['context'][1].metadata['source']
-            source1 = cleaner(source1_raw)
-            col2.subheader("Sources", anchor='Sources')
-            col2.write(source1[1])
-
+    if query:
+        cited_rag(query=query)
         # st.markdown("[google](www.google.com)") # Example of markdown hyperlink
 else: 
     st.subheader("Interested in using AI to help implement your SOPs?")
