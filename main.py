@@ -165,10 +165,10 @@ promptf = "How should I explain the reconditioning fee?"
 st.title("SOP with citations")
 intro = st.subheader("Welcome to your SOP guide")
 query = ""
-passphrase = st.text_input(label="Please enter your passcode", value="Speak friend and enter")
+#passphrase = st.text_input(label="Please enter your passcode", value="Speak friend and enter")
 code = st.secrets['passcode']
-if passphrase == code:
-    st.markdown("Not sure where to start? Here are some of my favorite prompts, it takes about 6-8 seconds to answer right now")
+if st.text_input(label="Please enter your passcode", value="Speak friend and enter") == code:
+    st.markdown("<span style='display: grid; place-items: center;'>Not sure where to start? Here are some of my favorite prompts, it takes about 6-8 seconds to answer right now</span>", unsafe_allow_html=True)
     cola, colb, colc, cold, cole, colf = st.columns(6)
     with cola:
         if st.button(prompta, key="prompta"):
