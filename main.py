@@ -111,7 +111,7 @@ def source_checker(context):
 
 def unpack_citations(incoming):
     staging = ""
-    for x in range(len(incoming['text'].answer)):
+    for x in range(0,len(incoming['text'].answer)):
         stage2 = str(incoming['text'].answer[x].substring_quote)
         stage2 = re.sub("\n\n", "  \n\n", stage2)
         staging = f'{staging}  \n\n <b id="quote{x+1}">{x+1}</b>: {stage2}'
@@ -138,17 +138,26 @@ def cited_rag(query):
 
     if 'context' in results and num_sources > 0:
         sources = ""
+        sources_b = []
         count = 1
+        used_chunks = []
         for x in range(0,num_sources):
-            ic(results)
-            source_raw = results['context'][0].metadata['source']
+            #ic(results)
+            num_cit = len(results['text'].answer)
+            source_raw = results['context'][x].metadata['source']
             ic(source_raw)
+            full_citation = results['context'][x].page_content
+            #print(dir(full_citation))
+            used_chunks.append(full_citation)
+            #ic(full_citation)
             source_staging = cleaner(source_raw)[1]
-            
+            ic(source_staging)
+            sources_b.append(source_staging)
             if sources.find(source_staging) == -1:
                 #ic(sources.find("source_staging"))
                 sources = f'{sources} {count}.{source_staging} \n\n'
                 count += count
+                
         col2.subheader("Sources", anchor='Sources')
         col2.write(sources)
 
@@ -197,6 +206,7 @@ if st.text_input(label="Please enter your passcode", value="Speak friend and ent
     if query:
         cited_rag(query=query)
         # st.markdown("[google](www.google.com)") # Example of markdown hyperlink
+
 else: 
     st.subheader("Interested in using AI to help implement your SOPs?")
     st.markdown("Send me a note at ritterstandalpha@gmail.com")
