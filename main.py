@@ -159,6 +159,7 @@ def cited_rag(query, diagnostic_mode = 0):
         col2.subheader("Sources", anchor='Sources')
         col2.markdown(sources_for_display)
     
+    st.subheader("Sections of sources used")
     source_titles = abbreviate_titles(source_titles)
     tabs = st.tabs(source_titles)
     for label, tab in zip(source_content, tabs):
