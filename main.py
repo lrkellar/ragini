@@ -164,7 +164,7 @@ def cited_rag(query, diagnostic_mode = 0):
     for label, tab in zip(source_content, tabs):
         with tab:
             st.markdown(label)
-    ic(tabs)
+
 
 
 ### Data Declarations
