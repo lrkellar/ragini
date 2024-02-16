@@ -5,16 +5,17 @@ if cwd[0] != 'C':
     __import__('pysqlite3')
     import sys
     sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
-    
-# Standard Variables
-debug_mode = 0 # Test this file locally
-diagnostic_mode = 0 # turns on checkpoints
 
-##############################
-# Database Functions
+### Import Functions
+import streamlit as st
 from langchain_community.vectorstores import Chroma
 from langchain_openai.embeddings import OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
+from langchain.chains import create_citation_fuzzy_match_chain
+from icecream import ic
+import re
 
+### Function declarations
 def data_load(persist_directory = "db", diagnostic_mode = 0):
     embedding = OpenAIEmbeddings(api_key=st.secrets['OPENAI_API_KEY'])
     vectordb = Chroma(persist_directory=persist_directory, embedding_function=embedding)
@@ -27,41 +28,11 @@ def data_load(persist_directory = "db", diagnostic_mode = 0):
     
     return vectordb
 
-##############################
-# LLM Functions
-from icecream import ic
-from langchain_openai import ChatOpenAI
-from langchain.chains import create_citation_fuzzy_match_chain
-import streamlit as st
-st.set_page_config(layout="wide")
-
-def highlight(text, span):
-    return (
-        "..."
-        + text[span[0] - 20 : span[0]]
-        + "*"
-        + "\033[91m"
-        + text[span[0] : span[1]]
-        + "\033[0m"
-        + "*"
-        + text[span[1] : span[1] + 20]
-        + "..."
-    )
-
 def citation_chain(question, context, diagnostic_mode = 0):
     llm = ChatOpenAI(temperature=0, model="gpt-3.5-turbo-0613", api_key=st.secrets['OPENAI_API_KEY'])
 
 
     chain = create_citation_fuzzy_match_chain(llm)
-    if diagnostic_mode == 2:
-        result = chain.run(question=question, context=context)
-        ic(result)
-
-        for fact in result.answer:
-            print("Statement:", fact.fact)
-            for span in fact.get_spans(context):
-                print("Citation:", highlight(context, span))
-            print()
 
     result2 = chain.invoke({'question': question, 'context' : context})
     result_staging = result2['text']
@@ -71,49 +42,15 @@ def citation_chain(question, context, diagnostic_mode = 0):
         #ic(result2)
     return(result2)
 
-if debug_mode == 1:
-    print("debug run")
-    query = "What happens during turn season?"
-    vectordb = data_load(diagnostic_mode=diagnostic_mode)
-    docs = vectordb.similarity_search(query)
-    citation_chain(question=query, context=docs, diagnostic_mode=diagnostic_mode)
-
-########################################
-# UI functions
-import re
-
-def cleaner(inputa : str) -> str:
-    regex = r".*\\(.*)"
-
-    match = re.search(regex, inputa) # Access the first group (entire match)
-    return match
-
-def ref_search(inp_str: str, search_str: str, context_len: int = 20) -> str:
-    """
-    Search for search_str in inp_str 
-    and return substring with context_len 
-    characters before and after search_str.
-    """
-    index = inp_str.find(search_str)
-    
-    # Handle case where search_str not found
-    if index == -1:  
-        return "" 
-    
-    start = max(0, index - context_len)
-    end = index + len(search_str) + context_len
-    output = inp_str[start:end]
-    
-    return output
-
-def source_checker(context):
-    print(context)
 
 def unpack_citations(incoming):
     staging = ""
     for x in range(0,len(incoming['text'].answer)):
-        stage2 = str(incoming['text'].answer[x].substring_quote)
+        ic(incoming['text'].answer[x].substring_quote)
+        stage2 = incoming['text'].answer[x].substring_quote
+        stage2 = '  \n\n'.join(stage2)
         stage2 = re.sub("\n\n", "  \n\n", stage2)
+        ic(stage2)
         staging = f'{staging}  \n\n <b id="quote{x+1}">{x+1}</b>: {stage2}'
     return staging
 
@@ -124,43 +61,114 @@ def unpack_answer(incoming):
         staging = f'{staging}  \n\n {x+1}. {stage2}[<sup>{x+1}</sup>](#quote{x+1})'
     return staging
 
-def cited_rag(query):
+def cleaner(inputa : str) -> str:
+    regex = r".*\\(.*)"
+
+    match = re.search(regex, inputa) # Access the first group (entire match)
+    return match
+
+def abbreviate_titles(source_titles: list) -> list:
+    """
+    Modifies each title in a list by removing the first 5 and last 4 characters.
+
+    Args:
+        source_titles: A list of strings containing the original titles.
+
+    Returns:
+        A new list containing the abbreviated titles.
+    """
+
+    abbreviated_titles = []
+    for source_title in source_titles:
+        abbreviated_title = source_title[5:-4]  # Extract the middle portion
+        abbreviated_titles.append(abbreviated_title)
+    return abbreviated_titles
+
+def ref_search(search_string, results, diagnostic_mode = 0):
+    #search_string = "  \n\n".join(search_string)
+    ic(search_string)
+    for x in range(0, len(results['context'])):
+        step_1 = results['context'][x].page_content
+        if diagnostic_mode == 1:
+            print(f"searching source {x+1}")
+            ic(step_1.find(search_string))
+        #step_1 = stringify(step_1)
+        if diagnostic_mode == 1:
+            ic(step_1)
+        step_2 = "".join(step_1)
+        ic(re.search(f"{step_1}",f"{results['context'][x].page_content}"))
+        #if re.search(step_1,results['context'][x].page_content) > 1:
+        #    print(f"source for answer {x} found: {results['context'][x].metadata['source']}")
+         #   cited = results['context'][x].metadata['source']
+          #  if diagnostic_mode == 1:
+           #     ic(cited)
+            #return cited
+
+def clean_b(input_strings):
+    cleaned_strings = ""
+    for string in input_strings:
+        cleaned = re.sub(r'[^\w\s]', '', string)
+    cleaned_strings.append(cleaned)
+    
+    return cleaned_strings
+
+def cited_rag(query, diagnostic_mode = 0):
     context = vectordb.similarity_search(query)
     with st.spinner(text="Checking the archives"):
         results = citation_chain(question=query, context=context)
+    if diagnostic_mode == 1:
+        ic(results)
+        ic(context)
     citations = unpack_citations(results)
     num_sources = len(results['context'])
+    source_titles = []
+    source_content = []
+    for x in range(0, num_sources):
+        source_titles.append(results['context'][x].metadata['source'])
+        source_content.append(results['context'][x].page_content)
+    ic(results['text'].answer)
+    #for answer in results['text'].answer:
+     #   ic(ref_search(answer.substring_quote, results=results))
+
     st.subheader("Answer", anchor="Answer")
     st.markdown(unpack_answer(results), unsafe_allow_html=True)
     col1, col2 = st.columns([.7,.3])
     col1.subheader("Quotations", anchor='Quotations')
     col1.markdown(citations, unsafe_allow_html=True)
-
+    used_chunks = []
     if 'context' in results and num_sources > 0:
-        sources = ""
-        sources_b = []
-        count = 1
-        used_chunks = []
-        for x in range(0,num_sources):
-            #ic(results)
-            num_cit = len(results['text'].answer)
-            source_raw = results['context'][x].metadata['source']
-            ic(source_raw)
-            full_citation = results['context'][x].page_content
-            #print(dir(full_citation))
-            used_chunks.append(full_citation)
-            #ic(full_citation)
-            source_staging = cleaner(source_raw)[1]
-            ic(source_staging)
-            sources_b.append(source_staging)
-            if sources.find(source_staging) == -1:
-                #ic(sources.find("source_staging"))
-                sources = f'{sources} {count}.{source_staging} \n\n'
-                count += count
-                
-        col2.subheader("Sources", anchor='Sources')
-        col2.write(sources)
+        for i in range(0, len(results['text'].answer)):
+            search_string = results['text'].answer[i].substring_quote
+            if len(search_string) >= 1: search_string = "".join(search_string)
+            ic(search_string)
+            sources_name = "Search tool failed"
+            for x in range(0, num_sources):
+                # Need to santize to literal strings somehow
+                answer_chunk = re.search(f"{search_string}",f"{results['context'][x].page_content}")
+                ic(answer_chunk)
+                if answer_chunk != None:
+                    sources_name = results['context'][x].metadata['source']
+            used_chunks.append(sources_name)
 
+
+        sources_for_display = ""
+        for x in range(0,len(used_chunks)):
+            
+            sources_for_display = f'{sources_for_display}  \n\n {x+1}. {used_chunks[x]}' # [<sup>{x+1}</sup>](#quote{x+1})
+
+        col2.subheader("Sources", anchor='Sources')
+        col2.markdown(sources_for_display)
+    
+    source_titles = abbreviate_titles(source_titles)
+    tabs = st.tabs(source_titles)
+    for label, tab in zip(source_content, tabs):
+        with tab:
+            st.markdown(label)
+    ic(tabs)
+
+
+### Data Declarations
+diagnostic_mode = 0 # turns on checkpoints
 
 vectordb = data_load(diagnostic_mode=diagnostic_mode)
 prompta = "I am the operations manager for Bloomington. It is february, what should I be working on?"
@@ -170,7 +178,7 @@ promptd = "I am the on call technician, is the clogged toilet that just got call
 prompte = "What are the steps to gathering a bid?"
 promptf = "How should I explain the reconditioning fee?"
 
-
+### Streamlit declaration
 st.title("SOP with citations")
 intro = st.subheader("Welcome to your SOP guide")
 query = ""
@@ -204,7 +212,7 @@ if st.text_input(label="Please enter your passcode", value="Speak friend and ent
         query = user_question
 
     if query:
-        cited_rag(query=query)
+        cited_rag(query=query, diagnostic_mode=1)
         # st.markdown("[google](www.google.com)") # Example of markdown hyperlink
 
 else: 
