@@ -14,7 +14,7 @@ from langchain_openai import ChatOpenAI
 from langchain.chains import create_citation_fuzzy_match_chain
 from icecream import ic
 import re
-
+st.set_page_config(layout="wide")
 ### Function declarations
 def data_load(persist_directory = "db", diagnostic_mode = 0):
     embedding = OpenAIEmbeddings(api_key=st.secrets['OPENAI_API_KEY'])
