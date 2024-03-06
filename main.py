@@ -14,7 +14,7 @@ from langchain_openai import ChatOpenAI
 from langchain.chains import create_citation_fuzzy_match_chain
 from icecream import ic
 import re
-st.set_page_config(layout="wide")
+
 ### Function declarations
 def data_load(persist_directory = "db", diagnostic_mode = 0):
     embedding = OpenAIEmbeddings(api_key=st.secrets['OPENAI_API_KEY'])
@@ -185,7 +185,21 @@ intro = st.subheader("Welcome to your SOP guide")
 query = ""
 #passphrase = st.text_input(label="Please enter your passcode", value="Speak friend and enter")
 code = st.secrets['passcode']
-if st.text_input(label="Please enter your passcode", value="Speak friend and enter") == code:
+# Create a placeholder for the passcode input
+passcode_placeholder = st.empty()
+
+# Check if the user is authenticated
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+# Display the passcode input if not authenticated
+if not st.session_state.authenticated:
+
+    passcode = passcode_placeholder.text_input(label="Please enter your passcode", value="Speak friend and enter", type="password")
+    if passcode == st.secrets['passcode']:
+        st.session_state.authenticated = True
+        passcode_placeholder.empty()  # Clear the passcode input
+if st.session_state.authenticated:
     st.markdown("<span style='display: grid; place-items: center;'>Not sure where to start? Here are some of my favorite prompts, it takes about 6-8 seconds to answer right now</span>", unsafe_allow_html=True)
     cola, colb, colc, cold, cole, colf = st.columns(6)
     with cola:
@@ -215,7 +229,6 @@ if st.text_input(label="Please enter your passcode", value="Speak friend and ent
     if query:
         cited_rag(query=query, diagnostic_mode=1)
         # st.markdown("[google](www.google.com)") # Example of markdown hyperlink
+st.subheader("Interested in using AI to help implement your SOPs?")
+st.markdown("Send me a note at ritterstandalpha@gmail.com")
 
-else: 
-    st.subheader("Interested in using AI to help implement your SOPs?")
-    st.markdown("Send me a note at ritterstandalpha@gmail.com")
