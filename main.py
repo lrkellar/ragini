@@ -180,6 +180,7 @@ prompte = "What are the steps to gathering a bid?"
 promptf = "How should I explain the reconditioning fee?"
 
 ### Streamlit declaration
+st.set_page_config(layout="wide")
 st.title("SOP with citations")
 intro = st.subheader("Welcome to your SOP guide")
 query = ""
